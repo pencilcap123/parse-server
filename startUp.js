@@ -20,4 +20,5 @@ httpServer.listen(1337, function() {
   console.log("running on port 1337");
 });
 
+// start live query server
 ParseServer.createLiveQueryServer(httpServer);
