@@ -51,7 +51,9 @@ export class LiveQueryController {
   }
 
   hasLiveQuery(className: string): boolean {
-    return this.classNames.has(className);
+    // 20190308 remove the restriction to allow all object's live query
+    this.classNames.has(className);
+    return true;
   }
 
   _makePublisherRequest(
