@@ -53,7 +53,8 @@ export class LiveQueryController {
   hasLiveQuery(className: string): boolean {
     // 20190308 remove the restriction to allow all object's live query
     this.classNames.has(className);
-    return true;
+
+    return !className.startsWith('_');
   }
 
   _makePublisherRequest(
