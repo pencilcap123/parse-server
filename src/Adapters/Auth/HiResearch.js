@@ -1,14 +1,47 @@
-// Helper functions for accessing the Facebook Graph API.
-// const httpRequest = require('./httpRequest');
-const logger = require('../../logger').default;
+'use strict';
 
-// var Parse = require('parse/node').Parse;
+// Helper functions for accessing the Facebook Graph API.
+const httpRequest = require('./httpRequest');
+const logger = require('../../logger').default;
+const Parse = require('parse/node').Parse;
 
 // Returns a promise that fulfills iff this user id is valid.
-function validateAuthData(authData) {
+function validateAuthData(authData, options) {
   logger.info('validateAuthData ++');
   logger.info(JSON.stringify(authData));
-  return Promise.resolve();
+  logger.info(JSON.stringify(options));
+
+  return httpRequest
+    .get({
+      host: options['hiresearchHost'],
+      port: options['hiresearchPort'],
+      path: '/authservice/v1/session/validate?userId=' + authData['id'],
+      headers: {
+        'User-Agent': 'parse-server',
+        accept: 'application/json',
+        'Bridge-Session': authData['bridgeSession'],
+      },
+    })
+    .then(
+      res => {
+        if (res.status() !== 200) {
+          logger.error(JSON.stringify(res));
+          throw new Parse.Error(
+            Parse.Error.OBJECT_NOT_FOUND,
+            'hiresearch auth is invalid for this user.'
+          );
+        }
+        logger.info(JSON.stringify(res));
+        return;
+      },
+      err => {
+        logger.error(err);
+        throw new Parse.Error(
+          Parse.Error.CONNECTION_FAILED,
+          'Failed to connect to hiresearch'
+        );
+      }
+    );
 }
 
 // Returns a promise that fulfills iff this app id is valid.
@@ -18,11 +51,6 @@ function validateAppId(appIds, authData) {
   logger.info(JSON.stringify(authData));
   return Promise.resolve();
 }
-
-// A promisey wrapper for FB graph requests.
-// function graphRequest(path) {
-//   return httpRequest.get('https://graph.facebook.com/' + path);
-// }
 
 module.exports = {
   validateAppId: validateAppId,

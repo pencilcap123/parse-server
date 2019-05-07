@@ -15,7 +15,9 @@ var api = new ParseServer({
   "allowClientClassCreation":true,
   "auth":{
     "hiresearchAuth": {
-      "module": HiResearchAuth
+      "module": HiResearchAuth,
+      "hiresearchHost": "172.16.164.79",
+      "hiresearchPort": 8080
     }
   }
 });
