@@ -106,6 +106,7 @@ const emptyCLPS = Object.freeze({
   update: {},
   delete: {},
   addField: {},
+  protectedFields: {},
 });
 
 const defaultCLPS = Object.freeze({
@@ -115,6 +116,7 @@ const defaultCLPS = Object.freeze({
   update: { '*': true },
   delete: { '*': true },
   addField: { '*': true },
+  protectedFields: { '*': [] },
 });
 
 const toParseSchema = schema => {
@@ -282,6 +284,12 @@ const buildWhereClause = ({ schema, query, index }): WhereClause => {
           name = transformDotFieldToComponents(fieldName).join('->');
           fieldValue.$in.forEach(listElem => {
             if (typeof listElem === 'string') {
+              if (listElem.includes('"') || listElem.includes("'")) {
+                throw new Parse.Error(
+                  Parse.Error.INVALID_JSON,
+                  'bad $in value; Strings with quotes cannot yet be safely escaped'
+                );
+              }
               inPatterns.push(`"${listElem}"`);
             } else {
               inPatterns.push(`${listElem}`);
@@ -1954,21 +1962,43 @@ export class PostgresStorageAdapter implements StorageAdapter {
   }
 
   // Executes a count.
-  count(className: string, schema: SchemaType, query: QueryType) {
-    debug('count', className, query);
+  count(
+    className: string,
+    schema: SchemaType,
+    query: QueryType,
+    readPreference?: string,
+    estimate?: boolean = true
+  ) {
+    debug('count', className, query, readPreference, estimate);
     const values = [className];
     const where = buildWhereClause({ schema, query, index: 2 });
     values.push(...where.values);
 
     const wherePattern =
       where.pattern.length > 0 ? `WHERE ${where.pattern}` : '';
-    const qs = `SELECT count(*) FROM $1:name ${wherePattern}`;
-    return this._client.one(qs, values, a => +a.count).catch(error => {
-      if (error.code !== PostgresRelationDoesNotExistError) {
-        throw error;
-      }
-      return 0;
-    });
+    let qs = '';
+
+    if (where.pattern.length > 0 || !estimate) {
+      qs = `SELECT count(*) FROM $1:name ${wherePattern}`;
+    } else {
+      qs =
+        'SELECT reltuples AS approximate_row_count FROM pg_class WHERE relname = $1';
+    }
+
+    return this._client
+      .one(qs, values, a => {
+        if (a.approximate_row_count != null) {
+          return +a.approximate_row_count;
+        } else {
+          return +a.count;
+        }
+      })
+      .catch(error => {
+        if (error.code !== PostgresRelationDoesNotExistError) {
+          throw error;
+        }
+        return 0;
+      });
   }
 
   distinct(
@@ -2093,32 +2123,34 @@ export class PostgresStorageAdapter implements StorageAdapter {
             index += 1;
             continue;
           }
-          if (value.$sum) {
-            if (typeof value.$sum === 'string') {
-              columns.push(`SUM($${index}:name) AS $${index + 1}:name`);
-              values.push(transformAggregateField(value.$sum), field);
-              index += 2;
-            } else {
-              countField = field;
-              columns.push(`COUNT(*) AS $${index}:name`);
-              values.push(field);
-              index += 1;
+          if (typeof value === 'object') {
+            if (value.$sum) {
+              if (typeof value.$sum === 'string') {
+                columns.push(`SUM($${index}:name) AS $${index + 1}:name`);
+                values.push(transformAggregateField(value.$sum), field);
+                index += 2;
+              } else {
+                countField = field;
+                columns.push(`COUNT(*) AS $${index}:name`);
+                values.push(field);
+                index += 1;
+              }
             }
-          }
-          if (value.$max) {
-            columns.push(`MAX($${index}:name) AS $${index + 1}:name`);
-            values.push(transformAggregateField(value.$max), field);
-            index += 2;
-          }
-          if (value.$min) {
-            columns.push(`MIN($${index}:name) AS $${index + 1}:name`);
-            values.push(transformAggregateField(value.$min), field);
-            index += 2;
-          }
-          if (value.$avg) {
-            columns.push(`AVG($${index}:name) AS $${index + 1}:name`);
-            values.push(transformAggregateField(value.$avg), field);
-            index += 2;
+            if (value.$max) {
+              columns.push(`MAX($${index}:name) AS $${index + 1}:name`);
+              values.push(transformAggregateField(value.$max), field);
+              index += 2;
+            }
+            if (value.$min) {
+              columns.push(`MIN($${index}:name) AS $${index + 1}:name`);
+              values.push(transformAggregateField(value.$min), field);
+              index += 2;
+            }
+            if (value.$avg) {
+              columns.push(`AVG($${index}:name) AS $${index + 1}:name`);
+              values.push(transformAggregateField(value.$avg), field);
+              index += 2;
+            }
           }
         }
       } else {
@@ -2314,6 +2346,11 @@ export class PostgresStorageAdapter implements StorageAdapter {
 
   updateSchemaWithIndexes(): Promise<void> {
     return Promise.resolve();
+  }
+
+  // Used for testing purposes
+  updateEstimatedCount(className: string) {
+    return this._client.none('ANALYZE $1:name', [className]);
   }
 }
 

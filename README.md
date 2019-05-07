@@ -4,9 +4,9 @@
 [![Build Status](https://img.shields.io/travis/parse-community/parse-server/master.svg?style=flat)](https://travis-ci.org/parse-community/parse-server)
 [![Coverage Status](https://img.shields.io/codecov/c/github/parse-community/parse-server/master.svg)](https://codecov.io/github/parse-community/parse-server?branch=master)
 [![npm version](https://img.shields.io/npm/v/parse-server.svg?style=flat)](https://www.npmjs.com/package/parse-server)
-[![Join Chat](https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-brightgreen.svg)](https://gitter.im/ParsePlatform/Chat)
+[![Join The Conversation](https://img.shields.io/discourse/https/community.parseplatform.org/topics.svg)](https://community.parseplatform.org/c/parse-server)
 [![Greenkeeper badge](https://badges.greenkeeper.io/parse-community/parse-server.svg)](https://greenkeeper.io/)
-
+[![Twitter Follow](https://img.shields.io/twitter/follow/ParsePlatform.svg?label=Follow%20us%20on%20Twitter&style=social)](https://twitter.com/intent/follow?screen_name=ParsePlatform)
 
 [![](https://img.shields.io/badge/mongodb-3.2-green.svg?logo=mongodb&style=flat)]()
 [![](https://img.shields.io/badge/mongodb-3.4-green.svg?logo=mongodb&style=flat)]()
@@ -59,14 +59,16 @@ $ mongodb-runner start
 $ parse-server --appId APPLICATION_ID --masterKey MASTER_KEY --databaseURI mongodb://localhost/test
 ```
 ***Note:*** *If installation with* `-g` *fails due to permission problems* (`npm ERR! code 'EACCES'`), *please refer to [this link](https://docs.npmjs.com/getting-started/fixing-npm-permissions).*
- 
+
 
 ### Inside a Docker container
 ```
+$ git clone https://github.com/parse-community/parse-server
+$ cd parse-server
 $ docker build --tag parse-server .
 $ docker run --name my-mongo -d mongo
 $ docker run --name my-parse-server --link my-mongo:mongo -d parse-server --appId APPLICATION_ID --masterKey MASTER_KEY --databaseURI mongodb://mongo/test
-```  
+```
 
 You can use any arbitrary string as your application id and master key. These will be used by your clients to authenticate with the Parse Server.
 
@@ -322,14 +324,15 @@ var server = ParseServer({
   },
   // optional settings to enforce password policies
   passwordPolicy: {
-    // Two optional settings to enforce strong passwords. Either one or both can be specified. 
+    // Two optional settings to enforce strong passwords. Either one or both can be specified.
     // If both are specified, both checks must pass to accept the password
-    // 1. a RegExp object or a regex string representing the pattern to enforce 
+    // 1. a RegExp object or a regex string representing the pattern to enforce
     validatorPattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,})/, // enforce password with at least 8 char with at least 1 lower case, 1 upper case and 1 digit
-    // 2. a callback function to be invoked to validate the password  
-    validatorCallback: (password) => { return validatePassword(password) }, 
+    // 2. a callback function to be invoked to validate the password
+    validatorCallback: (password) => { return validatePassword(password) },
+    validationError: 'Password must contain at least 1 digit.' // optional error message to be sent instead of the default "Password does not meet the Password Policy requirements." message.
     doNotAllowUsername: true, // optional setting to disallow username in passwords
-    maxPasswordAge: 90, // optional setting in days for password expiry. Login fails if user does not reset the password within this period after signup/last reset. 
+    maxPasswordAge: 90, // optional setting in days for password expiry. Login fails if user does not reset the password within this period after signup/last reset.
     maxPasswordHistory: 5, // optional setting to prevent reuse of previous n passwords. Maximum value that can be specified is 20. Not specifying it or specifying 0 will not enforce history.
     //optional setting to set a validity duration for password reset links (in seconds)
     resetTokenValidityDuration: 24*60*60, // expire after 24 hours
@@ -389,7 +392,7 @@ Parse Server allows developers to choose from several options when hosting files
 
 # Upgrading to 3.0.0
 
-Starting 3.0.0, parse-server uses the JS SDK version 2.0. 
+Starting 3.0.0, parse-server uses the JS SDK version 2.0.
 In short, parse SDK v2.0 removes the backbone style callbacks as well as the Parse.Promise object in favor of native promises.
 All the Cloud Code interfaces also have been updated to reflect those changes, and all backbone style response objects are removed and replaced by Promise style resolution.
 
@@ -397,7 +400,8 @@ We have written up a [migration guide](3.0.0.md), hoping this will help you tran
 
 # Support
 
-For implementation related questions or technical support, please refer to the [Stack Overflow](http://stackoverflow.com/questions/tagged/parse.com) and [Server Fault](https://serverfault.com/tags/parse) communities.
+For implementation related questions or any other questions please refer to [Parse Community's Discourse forum](https://community.parseplatform.org/c/parse-server).
+
 
 If you believe you've found an issue with Parse Server, make sure these boxes are checked before [reporting an issue](https://github.com/parse-community/parse-server/issues):
 
@@ -425,16 +429,11 @@ You can also use your own forks, and work in progress branches by specifying the
 npm install github:myUsername/parse-server#my-awesome-feature
 ```
 
-And don't forget, if you plan to deploy it remotely, you should run `npm install` with the `--save` option.
+And don't forget, if you plan to deploy it remotely, you should run `npm install` with the `--save` option.
 
 # Contributing
 
 We really want Parse to be yours, to see it grow and thrive in the open source community. Please see the [Contributing to Parse Server guide](CONTRIBUTING.md).
-
------
-
-As of April 5, 2017, Parse, LLC has transferred this code to the parse-community organization, and will no longer be contributing to or distributing this code.
-
 
 # Backers
 
@@ -507,3 +506,6 @@ Become a sponsor and get your logo on our README on Github with a link to your s
 <a href="https://opencollective.com/parse-server/sponsor/28/website" target="_blank"><img src="https://opencollective.com/parse-server/sponsor/28/avatar.svg"></a>
 <a href="https://opencollective.com/parse-server/sponsor/29/website" target="_blank"><img src="https://opencollective.com/parse-server/sponsor/29/avatar.svg"></a>
 
+-----
+
+As of April 5, 2017, Parse, LLC has transferred this code to the parse-community organization, and will no longer be contributing to or distributing this code.

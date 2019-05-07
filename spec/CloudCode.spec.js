@@ -162,6 +162,27 @@ describe('Cloud Code', () => {
     );
   });
 
+  it("test beforeSave changed object fail doesn't change object", async function() {
+    Parse.Cloud.beforeSave('BeforeSaveChanged', function(req) {
+      if (req.object.has('fail')) {
+        return Promise.reject(new Error('something went wrong'));
+      }
+
+      return Promise.resolve();
+    });
+
+    const obj = new Parse.Object('BeforeSaveChanged');
+    obj.set('foo', 'bar');
+    await obj.save();
+    obj.set('foo', 'baz').set('fail', true);
+    try {
+      await obj.save();
+    } catch (e) {
+      await obj.fetch();
+      expect(obj.get('foo')).toBe('bar');
+    }
+  });
+
   it('test beforeSave returns value on create and update', done => {
     Parse.Cloud.beforeSave('BeforeSaveChanged', function(req) {
       req.object.set('foo', 'baz');
@@ -175,6 +196,45 @@ describe('Cloud Code', () => {
       return obj.save().then(() => {
         expect(obj.get('foo')).toEqual('baz');
         done();
+      });
+    });
+  });
+
+  it('test beforeSave applies changes when beforeSave returns true', done => {
+    Parse.Cloud.beforeSave('Insurance', function(req) {
+      req.object.set('rate', '$49.99/Month');
+      return true;
+    });
+
+    const insurance = new Parse.Object('Insurance');
+    insurance.set('rate', '$5.00/Month');
+    insurance.save().then(insurance => {
+      expect(insurance.get('rate')).toEqual('$49.99/Month');
+      done();
+    });
+  });
+
+  it('test beforeSave applies changes and resolves returned promise', done => {
+    Parse.Cloud.beforeSave('Insurance', function(req) {
+      req.object.set('rate', '$49.99/Month');
+      return new Parse.Query('Pet').get(req.object.get('pet').id).then(pet => {
+        pet.set('healthy', true);
+        return pet.save();
+      });
+    });
+
+    const pet = new Parse.Object('Pet');
+    pet.set('healthy', false);
+    pet.save().then(pet => {
+      const insurance = new Parse.Object('Insurance');
+      insurance.set('pet', pet);
+      insurance.set('rate', '$5.00/Month');
+      insurance.save().then(insurance => {
+        expect(insurance.get('rate')).toEqual('$49.99/Month');
+        new Parse.Query('Pet').get(insurance.get('pet').id).then(pet => {
+          expect(pet.get('healthy')).toEqual(true);
+          done();
+        });
       });
     });
   });
@@ -1961,6 +2021,24 @@ describe('afterFind hooks', () => {
     expect(() => {
       Parse.Cloud.afterSave('_PushStatus', () => {});
     }).not.toThrow();
+    expect(() => {
+      Parse.Cloud.beforeLogin(() => {});
+    }).not.toThrow(
+      'Only the _User class is allowed for the beforeLogin trigger'
+    );
+    expect(() => {
+      Parse.Cloud.beforeLogin('_User', () => {});
+    }).not.toThrow(
+      'Only the _User class is allowed for the beforeLogin trigger'
+    );
+    expect(() => {
+      Parse.Cloud.beforeLogin(Parse.User, () => {});
+    }).not.toThrow(
+      'Only the _User class is allowed for the beforeLogin trigger'
+    );
+    expect(() => {
+      Parse.Cloud.beforeLogin('SomeClass', () => {});
+    }).toThrow('Only the _User class is allowed for the beforeLogin trigger');
   });
 
   it('should skip afterFind hooks for aggregate', done => {
@@ -2053,5 +2131,90 @@ describe('afterFind hooks', () => {
     await object.save();
     expect(calledBefore).toBe(true);
     expect(calledAfter).toBe(true);
+  });
+});
+
+describe('beforeLogin hook', () => {
+  it('should run beforeLogin with correct credentials', async done => {
+    let hit = 0;
+    Parse.Cloud.beforeLogin(req => {
+      hit++;
+      expect(req.object.get('username')).toEqual('tupac');
+    });
+
+    await Parse.User.signUp('tupac', 'shakur');
+    const user = await Parse.User.logIn('tupac', 'shakur');
+    expect(hit).toBe(1);
+    expect(user).toBeDefined();
+    expect(user.getUsername()).toBe('tupac');
+    expect(user.getSessionToken()).toBeDefined();
+    done();
+  });
+
+  it('should be able to block login if an error is thrown', async done => {
+    let hit = 0;
+    Parse.Cloud.beforeLogin(req => {
+      hit++;
+      if (req.object.get('isBanned')) {
+        throw new Error('banned account');
+      }
+    });
+
+    const user = await Parse.User.signUp('tupac', 'shakur');
+    await user.save({ isBanned: true });
+
+    try {
+      await Parse.User.logIn('tupac', 'shakur');
+      throw new Error('should not have been logged in.');
+    } catch (e) {
+      expect(e.message).toBe('banned account');
+    }
+    expect(hit).toBe(1);
+    done();
+  });
+
+  it('should not run beforeLogin with incorrect credentials', async done => {
+    let hit = 0;
+    Parse.Cloud.beforeLogin(req => {
+      hit++;
+      expect(req.object.get('username')).toEqual('tupac');
+    });
+
+    await Parse.User.signUp('tupac', 'shakur');
+    try {
+      await Parse.User.logIn('tony', 'shakur');
+    } catch (e) {
+      expect(e.code).toBe(Parse.Error.OBJECT_NOT_FOUND);
+    }
+    expect(hit).toBe(0);
+    done();
+  });
+
+  it('should not run beforeLogin on sign up', async done => {
+    let hit = 0;
+    Parse.Cloud.beforeLogin(req => {
+      hit++;
+      expect(req.object.get('username')).toEqual('tupac');
+    });
+
+    const user = await Parse.User.signUp('tupac', 'shakur');
+    expect(user).toBeDefined();
+    expect(hit).toBe(0);
+    done();
+  });
+
+  it('should have expected data in request', async done => {
+    Parse.Cloud.beforeLogin(req => {
+      expect(req.object).toBeDefined();
+      expect(req.user).toBeUndefined();
+      expect(req.headers).toBeDefined();
+      expect(req.ip).toBeDefined();
+      expect(req.installationId).toBeDefined();
+      expect(req.context).toBeUndefined();
+    });
+
+    await Parse.User.signUp('tupac', 'shakur');
+    await Parse.User.logIn('tupac', 'shakur');
+    done();
   });
 });
