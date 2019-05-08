@@ -15,7 +15,7 @@ function validateAuthData(authData, options) {
     .get({
       host: options['hiresearchHost'],
       port: options['hiresearchPort'],
-      path: '/authservice/v1/session/validate?userId=' + authData['id'],
+      path: '/careauthservice/v1/session/validate?userId=' + authData['id'],
       headers: {
         'User-Agent': 'parse-server',
         accept: 'application/json',
@@ -24,7 +24,7 @@ function validateAuthData(authData, options) {
     })
     .then(
       res => {
-        if (res.status() !== 200) {
+        if (res['code'] !== '0') {
           logger.error(JSON.stringify(res));
           throw new Parse.Error(
             Parse.Error.OBJECT_NOT_FOUND,
