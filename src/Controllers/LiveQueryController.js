@@ -62,16 +62,32 @@ export class LiveQueryController {
     originalObject: any,
     classLevelPermissions: ?any
   ): any {
+    // 20190508 do not reveal data field in livequery event but only id field
     const req = {
-      object: currentObject,
+      object: this._makeObject(currentObject),
     };
     if (currentObject) {
-      req.original = originalObject;
+      req.original = originalObject
+        ? this._makeObject(originalObject)
+        : originalObject;
     }
     if (classLevelPermissions) {
       req.classLevelPermissions = classLevelPermissions;
     }
     return req;
+  }
+
+  _makeObject(source: any): any {
+    return {
+      id: source['id'],
+      _toFullJSON: () => {
+        return {
+          id: source['id'],
+          __type: 'Object',
+          className: source['className'],
+        };
+      },
+    };
   }
 }
 
