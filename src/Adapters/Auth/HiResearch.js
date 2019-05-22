@@ -1,7 +1,7 @@
 'use strict';
 
 // Helper functions for accessing the Facebook Graph API.
-const httpRequest = require('./httpRequest');
+const httpsRequest = require('./httpsRequest');
 const logger = require('../../logger').default;
 const Parse = require('parse/node').Parse;
 
@@ -11,7 +11,7 @@ function validateAuthData(authData, options) {
   logger.info(JSON.stringify(authData));
   logger.info(JSON.stringify(options));
 
-  return httpRequest
+  return httpsRequest
     .get({
       host: options['hiresearchHost'],
       port: options['hiresearchPort'],
