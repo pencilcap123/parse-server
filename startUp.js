@@ -7,11 +7,13 @@ var api = new ParseServer({
   "appId":"hiresearch",
   "masterKey":"Hiresearch1",
   "javascriptKey":"jskey",
-  "databaseURI":"mongodb://172.16.164.85:27017/parse",
+  "clientKey":"clientKey",
+  "restAPIKey":"restKey",
+  "databaseURI":"mongodb://172.16.164.85:27017/parse_xuzhe",
   "liveQuery":{
-    "redisURL": 'redis://172.16.164.85:6379'
+    "redisURL": 'redis://127.0.0.1:6379'
   },
-  "cloud":"./cloud/main.js",
+  "jsonLogs": false,
   "allowClientClassCreation":true,
   "auth":{
     "hiresearchAuth": {
@@ -34,5 +36,5 @@ httpServer.listen(1337, function() {
 
 // start live query server
 ParseServer.createLiveQueryServer(httpServer, {
-  "redisURL": 'redis://172.16.164.85:6379'
+  "redisURL": 'redis://127.0.0.1:6379'
 });
