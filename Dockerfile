@@ -11,12 +11,17 @@ RUN npm run build
 
 # Release stage
 FROM node:lts-alpine as release
+
+RUN apk update; \
+  apk add git;
+
 VOLUME /parse-server/cloud /parse-server/config
 
 WORKDIR /parse-server
 
 COPY package*.json ./
-RUN npm ci --production
+
+RUN npm ci --production --ignore-scripts
 
 COPY bin bin
 COPY public_html public_html

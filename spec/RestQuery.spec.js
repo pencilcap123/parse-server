@@ -181,31 +181,26 @@ describe('rest query', () => {
       );
   });
 
-  it('query existent class when disabled client class creation', done => {
+  it('query existent class when disabled client class creation', async () => {
     const customConfig = Object.assign({}, config, {
       allowClientClassCreation: false,
     });
-    config.database
-      .loadSchema()
-      .then(schema => schema.addClassIfNotExists('ClientClassCreation', {}))
-      .then(actualSchema => {
-        expect(actualSchema.className).toEqual('ClientClassCreation');
-        return rest.find(
-          customConfig,
-          auth.nobody(customConfig),
-          'ClientClassCreation',
-          {}
-        );
-      })
-      .then(
-        result => {
-          expect(result.results.length).toEqual(0);
-          done();
-        },
-        () => {
-          fail('Should not throw error');
-        }
-      );
+    const schema = await config.database.loadSchema();
+    const actualSchema = await schema.addClassIfNotExists(
+      'ClientClassCreation',
+      {}
+    );
+    expect(actualSchema.className).toEqual('ClientClassCreation');
+
+    await schema.reloadData({ clearCache: true });
+    // Should not throw
+    const result = await rest.find(
+      customConfig,
+      auth.nobody(customConfig),
+      'ClientClassCreation',
+      {}
+    );
+    expect(result.results.length).toEqual(0);
   });
 
   it('query with wrongly encoded parameter', done => {
@@ -423,5 +418,32 @@ describe('RestQuery.each', () => {
     expect(classSpy.calls.count()).toBe(4);
     expect(resultsOne.length).toBe(1);
     expect(resultsTwo.length).toBe(1);
+  });
+
+  it('test afterSave response object is return', done => {
+    Parse.Cloud.beforeSave('TestObject2', function(req) {
+      req.object.set('tobeaddbefore', true);
+      req.object.set('tobeaddbeforeandremoveafter', true);
+    });
+
+    Parse.Cloud.afterSave('TestObject2', function(req) {
+      const jsonObject = req.object.toJSON();
+      delete jsonObject.todelete;
+      delete jsonObject.tobeaddbeforeandremoveafter;
+      jsonObject.toadd = true;
+
+      return jsonObject;
+    });
+
+    rest
+      .create(config, nobody, 'TestObject2', { todelete: true, tokeep: true })
+      .then(response => {
+        expect(response.response.toadd).toBeTruthy();
+        expect(response.response.tokeep).toBeTruthy();
+        expect(response.response.tobeaddbefore).toBeTruthy();
+        expect(response.response.tobeaddbeforeandremoveafter).toBeUndefined();
+        expect(response.response.todelete).toBeUndefined();
+        done();
+      });
   });
 });

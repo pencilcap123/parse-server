@@ -44,6 +44,66 @@ describe('rest create', () => {
       });
   });
 
+  it('should use objectId from client when allowCustomObjectId true', async () => {
+    config.allowCustomObjectId = true;
+
+    // use time as unique custom id for test reusability
+    const customId = `${Date.now()}`;
+    const obj = {
+      objectId: customId,
+    };
+
+    const {
+      status,
+      response: { objectId },
+    } = await rest.create(config, auth.nobody(config), 'MyClass', obj);
+
+    expect(status).toEqual(201);
+    expect(objectId).toEqual(customId);
+  });
+
+  it('should throw on invalid objectId when allowCustomObjectId true', () => {
+    config.allowCustomObjectId = true;
+
+    const objIdNull = {
+      objectId: null,
+    };
+
+    const objIdUndef = {
+      objectId: undefined,
+    };
+
+    const objIdEmpty = {
+      objectId: '',
+    };
+
+    const err = 'objectId must not be empty, null or undefined';
+
+    expect(() =>
+      rest.create(config, auth.nobody(config), 'MyClass', objIdEmpty)
+    ).toThrowError(err);
+
+    expect(() =>
+      rest.create(config, auth.nobody(config), 'MyClass', objIdNull)
+    ).toThrowError(err);
+
+    expect(() =>
+      rest.create(config, auth.nobody(config), 'MyClass', objIdUndef)
+    ).toThrowError(err);
+  });
+
+  it('should generate objectId when not set by client with allowCustomObjectId true', async () => {
+    config.allowCustomObjectId = true;
+
+    const {
+      status,
+      response: { objectId },
+    } = await rest.create(config, auth.nobody(config), 'MyClass', {});
+
+    expect(status).toEqual(201);
+    expect(objectId).toBeDefined();
+  });
+
   it('is backwards compatible when _id size changes', done => {
     rest
       .create(config, auth.nobody(config), 'Foo', { size: 10 })
@@ -181,30 +241,25 @@ describe('rest create', () => {
       );
   });
 
-  it('handles create on existent class when disabled client class creation', done => {
+  it('handles create on existent class when disabled client class creation', async () => {
     const customConfig = Object.assign({}, config, {
       allowClientClassCreation: false,
     });
-    config.database
-      .loadSchema()
-      .then(schema => schema.addClassIfNotExists('ClientClassCreation', {}))
-      .then(actualSchema => {
-        expect(actualSchema.className).toEqual('ClientClassCreation');
-        return rest.create(
-          customConfig,
-          auth.nobody(customConfig),
-          'ClientClassCreation',
-          {}
-        );
-      })
-      .then(
-        () => {
-          done();
-        },
-        () => {
-          fail('Should not throw error');
-        }
-      );
+    const schema = await config.database.loadSchema();
+    const actualSchema = await schema.addClassIfNotExists(
+      'ClientClassCreation',
+      {}
+    );
+    expect(actualSchema.className).toEqual('ClientClassCreation');
+
+    await schema.reloadData({ clearCache: true });
+    // Should not throw
+    await rest.create(
+      customConfig,
+      auth.nobody(customConfig),
+      'ClientClassCreation',
+      {}
+    );
   });
 
   it('handles user signup', done => {
@@ -447,6 +502,28 @@ describe('rest create', () => {
       const b = response.data;
       expect(b.code).toEqual(105);
       expect(b.error).toEqual('objectId is an invalid field name.');
+      done();
+    });
+  });
+
+  it('cannot set id', done => {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Parse-Application-Id': 'test',
+      'X-Parse-REST-API-Key': 'rest',
+    };
+    request({
+      headers: headers,
+      method: 'POST',
+      url: 'http://localhost:8378/1/classes/TestObject',
+      body: JSON.stringify({
+        foo: 'bar',
+        id: 'hello',
+      }),
+    }).then(fail, response => {
+      const b = response.data;
+      expect(b.code).toEqual(105);
+      expect(b.error).toEqual('id is an invalid field name.');
       done();
     });
   });
